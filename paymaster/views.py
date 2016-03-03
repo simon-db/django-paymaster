@@ -63,10 +63,6 @@ class InitialView(generic.FormView):
         """ Получаем объект-плательщика """
         return self.request.user
 
-    def get_payer_id(self):
-        """ Получаем кодированный идентификатор плательщика """
-        return utils.encode_payer(self.request.user)
-
     def get_amount(self, form):
         """ Получаем сумму платежа """
         return form.data.get(self.amount_key)
@@ -145,7 +141,6 @@ class InitialView(generic.FormView):
                 settings.PAYMASTER_INVOICE_CONFIRMATION_URL),
             'LMI_PAYMENT_NOTIFICATION_URL': (
                 settings.PAYMASTER_PAYMENT_NOTIFICATION_URL),
-            'LOC_PAYER_ID': self.get_payer_id(),
         }
 
         data.update(self.get_extra_params(form))
@@ -180,10 +175,9 @@ class ConfirmView(utils.CSRFExempt, generic.View):
         # Создание счета в БД продавца
         invoice = Invoice.objects.create_from_api(request.POST)
         logger.info(u'Invoice {0} payment confirm.'.format(invoice.number))
-        payer = utils.decode_payer(self.request.REQUEST.get('LOC_PAYER_ID'))
 
         # Отправка сигнал подтверждения счета.
-        signals.invoice_confirm.send(sender=self, payer=payer, invoice=invoice)
+        signals.invoice_confirm.send(sender=self, invoice=invoice)
         return HttpResponse('YES', content_type='text/plain')
 
 
@@ -230,10 +224,9 @@ class NotificationView(utils.CSRFExempt, generic.View):
             return HttpResponse('InvoiceDuplicationError')
 
         logger.info(u'Invoice {0} paid succesfully.'.format(invoice.number))
-        payer = utils.decode_payer(self.request.REQUEST.get('LOC_PAYER_ID'))
 
         # Отправляем сигнал об успешной оплате
-        signals.invoice_paid.send(sender=self, payer=payer, invoice=invoice)
+        signals.invoice_paid.send(sender=self, invoice=invoice)
         return HttpResponse('', content_type='text/plain')
 
 
